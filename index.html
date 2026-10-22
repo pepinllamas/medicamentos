@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Control de Medicamentos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
+<style>
+/* Concepto: un pastillero por horas. Cada hora es un compartimento con el color de su franja del día. */
+:root{
+  --bg:#eef3f1; --surface:#ffffff; --surface-2:#f6f9f8; --ink:#14302a; --muted:#53685f; --line:#d3dfda;
+  --accent:#0d6b5b; --accent-ink:#ffffff; --accent-soft:#d8eee8;
+  --ok:#1d7f46; --ok-soft:#dcf2e4; --late:#b5470f; --late-soft:#fbe7dc; --alarm:#b42318;
+  --b-man:#e9a52b; --b-med:#e06a35; --b-tar:#7466cc; --b-noc:#2d4878;
+  --font-display:"Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body:"Atkinson Hyperlegible", Verdana, system-ui, sans-serif;
+  --r:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1816; --surface:#16231f; --surface-2:#1b2b27; --ink:#e4efeb; --muted:#9db3ab; --line:#2a3e38;
+    --accent:#4cc3a8; --accent-ink:#06201a; --accent-soft:#173b33;
+    --ok:#5fd18d; --ok-soft:#163626; --late:#f29a63; --late-soft:#3a2216; --alarm:#ff7a6b;
+    --b-man:#f0b847; --b-med:#f0834f; --b-tar:#9b90e8; --b-noc:#6f8fcf;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1816; --surface:#16231f; --surface-2:#1b2b27; --ink:#e4efeb; --muted:#9db3ab; --line:#2a3e38;
+  --accent:#4cc3a8; --accent-ink:#06201a; --accent-soft:#173b33;
+  --ok:#5fd18d; --ok-soft:#163626; --late:#f29a63; --late-soft:#3a2216; --alarm:#ff7a6b;
+  --b-man:#f0b847; --b-med:#f0834f; --b-tar:#9b90e8; --b-noc:#6f8fcf;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:18px;line-height:1.45;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+img{max-width:100%}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 60px}
+
+/* Encabezado */
+header.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end;justify-content:space-between}
+.who h1{font-family:var(--font-display);font-weight:800;font-size:clamp(28px,6vw,40px);line-height:1.05;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.who .sub{color:var(--muted);font-size:16px;margin-top:4px}
+.clock{font-family:var(--font-display);font-weight:600;font-size:clamp(34px,8vw,52px);line-height:1;font-variant-numeric:tabular-nums;text-align:right}
+.clock small{display:block;font-family:var(--font-body);font-weight:400;font-size:15px;color:var(--muted);text-align:right;margin-top:4px}
+
+.arm{margin-top:18px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:14px 16px;border-radius:var(--r);border:2px dashed var(--alarm);background:var(--late-soft)}
+.arm p{margin:0;flex:1 1 260px;min-width:0}
+.arm.on{border:2px solid var(--ok);background:var(--ok-soft)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:12px 20px;font-weight:700;background:var(--accent);color:var(--accent-ink);min-height:48px}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--line)}
+.btn.danger{background:var(--alarm);color:#fff}
+.btn.small{padding:8px 14px;min-height:40px;font-size:16px}
+
+nav.tabs{display:flex;gap:6px;margin-top:20px;border-bottom:2px solid var(--line)}
+nav.tabs button{background:none;border:0;padding:12px 16px;font-weight:700;color:var(--muted);border-bottom:4px solid transparent;margin-bottom:-2px}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+
+/* Resumen del día */
+.daybar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:18px}
+.daybar .date{font-family:var(--font-display);font-weight:600;font-size:22px;flex:1 1 200px;min-width:0;text-transform:capitalize}
+.iconbtn{width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:var(--surface);font-size:22px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.progress{margin-top:12px;display:flex;align-items:center;gap:14px}
+.progress .track{flex:1;height:14px;border-radius:99px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+.progress .fill{height:100%;background:var(--ok);width:0;transition:width .4s}
+.progress .count{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:15px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+
+.notice{margin-top:16px;padding:12px 16px;border-radius:var(--r);background:var(--accent-soft);display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.notice p{margin:0;flex:1 1 240px;min-width:0}
+
+/* Compartimentos por hora */
+.slots{display:flex;flex-direction:column;gap:12px;margin-top:18px}
+.slot{display:grid;grid-template-columns:96px 1fr;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.slot .hour{background:var(--band);color:#fff;padding:14px 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.slot .hour b{font-family:var(--font-display);font-weight:800;font-size:28px;line-height:1;font-variant-numeric:tabular-nums}
+.slot .hour span{font-size:14px;letter-spacing:.06em;text-transform:uppercase;margin-top:4px;opacity:.92}
+.slot .hour em{font-style:normal;font-size:12px;margin-top:8px;background:rgba(0,0,0,.22);border-radius:99px;padding:2px 8px}
+.slot.now{border:3px solid var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.slot.empty{grid-template-columns:96px 1fr;opacity:.6}
+.slot.empty .meds{color:var(--muted);font-size:15px;padding:10px 14px}
+.slot.empty .hour{padding:8px}
+.slot.empty .hour b{font-size:20px}
+.meds{display:flex;flex-direction:column;min-width:0}
+.med{display:grid;grid-template-columns:72px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+.med:first-child{border-top:0}
+.thumb{width:72px;height:72px;border-radius:12px;object-fit:cover;background:var(--surface-2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.thumb svg{width:40px;height:40px}
+.med .info{min-width:0}
+.med .name{font-weight:700;font-size:20px;line-height:1.2;overflow-wrap:anywhere}
+.med .dose{color:var(--muted);font-size:16px;overflow-wrap:anywhere}
+.tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);margin-left:6px;vertical-align:2px}
+.status{font-size:14px;font-weight:700;margin-top:4px}
+.status.late{color:var(--late)}
+.status.ok{color:var(--ok)}
+
+.check{width:64px;height:64px;border-radius:50%;border:3px solid var(--line);background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:12px;font-weight:700;color:var(--muted);padding:0;transition:transform .12s}
+.check svg{width:30px;height:30px}
+.check:active{transform:scale(.94)}
+.check.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.check.late{border-color:var(--late);color:var(--late)}
+
+/* Medicamentos */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-top:18px}
+.toolbar h2,.panel h2,.settings h2{font-family:var(--font-display);font-weight:600;font-size:24px;margin:0}
+.medlist{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.medcard{display:grid;grid-template-columns:80px 1fr;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.medcard .thumb{width:80px;height:80px}
+.medcard .info{min-width:0}
+.hrs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.hrs span{font-size:14px;padding:3px 10px;border-radius:99px;background:var(--surface-2);border:1px solid var(--line);font-variant-numeric:tabular-nums}
+.medcard .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+
+.panel{background:var(--surface);border:2px solid var(--accent);border-radius:var(--r);padding:18px;margin-top:16px;display:flex;flex-direction:column;gap:16px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label,.field .lbl{font-weight:700}
+.field .hint{font-size:15px;color:var(--muted)}
+input[type=text],textarea,select{width:100%;padding:12px 14px;border-radius:10px;border:2px solid var(--line);background:var(--surface-2);min-height:48px}
+textarea{min-height:70px;resize:vertical}
+.photo-row{display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+.photo-row .thumb{width:110px;height:110px}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
+.chip{border:2px solid var(--line);background:var(--surface-2);border-radius:10px;padding:10px 4px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;position:relative}
+.chip small{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--band);border-color:var(--band);color:#fff}
+.chip[aria-pressed="true"] small{color:#fff}
+.form-actions{display:flex;flex-wrap:wrap;gap:10px}
+.err{color:var(--alarm);font-weight:700;margin:0}
+
+/* Ajustes */
+.settings{display:flex;flex-direction:column;gap:18px;margin-top:18px}
+.settings section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;display:flex;flex-direction:column;gap:14px}
+.settings p{margin:0;color:var(--muted);font-size:16px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+input[type=range]{width:100%;accent-color:var(--accent)}
+
+/* Alarma */
+.alarm{position:fixed;inset:0;z-index:50;background:rgba(10,20,18,.72);display:flex;align-items:center;justify-content:center;
+  padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.alarm .box{background:var(--surface);border-radius:20px;max-width:560px;width:100%;max-height:100%;overflow:auto;border-top:12px solid var(--band)}
+.alarm .head{padding:20px 20px 10px;text-align:center}
+.alarm .bell{font-size:44px;line-height:1;display:inline-block;animation:ring 1s ease-in-out infinite}
+.alarm h2{font-family:var(--font-display);font-weight:800;font-size:clamp(26px,6vw,34px);margin:8px 0 2px;text-wrap:balance}
+.alarm .when{color:var(--muted)}
+.alarm .list{display:flex;flex-direction:column;gap:12px;padding:10px 20px}
+.alarm .item{display:grid;grid-template-columns:110px 1fr;gap:14px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2)}
+.alarm .item .thumb{width:110px;height:110px}
+.alarm .item .name{font-weight:700;font-size:22px;line-height:1.2;overflow-wrap:anywhere}
+.alarm .item .dose{color:var(--muted);overflow-wrap:anywhere}
+.alarm .item .btn{margin-top:10px}
+.alarm .foot{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:14px 20px 22px}
+@keyframes ring{0%,100%{transform:rotate(0)}20%{transform:rotate(14deg)}40%{transform:rotate(-12deg)}60%{transform:rotate(8deg)}80%{transform:rotate(-4deg)}}
+@media (prefers-reduced-motion: reduce){.alarm .bell{animation:none}.progress .fill{transition:none}}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:99px;font-weight:700;z-index:60;max-width:calc(100% - 32px);text-align:center}
+
+@media (max-width:520px){
+  body{font-size:17px}
+  .slot{grid-template-columns:74px 1fr}
+  .slot.empty{grid-template-columns:74px 1fr}
+  .slot .hour b{font-size:22px}
+  .med{grid-template-columns:56px 1fr auto;gap:10px;padding:10px}
+  .med .thumb{width:56px;height:56px}
+  .check{width:56px;height:56px}
+  .alarm .item{grid-template-columns:80px 1fr}
+  .alarm .item .thumb{width:80px;height:80px}
+  .clock{text-align:left}.clock small{text-align:left}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="who">
+      <h1 id="patientTitle">Mis medicamentos</h1>
+      <div class="sub">Control diario de tomas · de 6 a. m. a 11 p. m.</div>
+    </div>
+    <div class="clock" id="clock">--:--<small id="clockDate"></small></div>
+  </header>
+
+  <div class="arm" id="armBox">
+    <p id="armText"><strong>Las alarmas con sonido están apagadas.</strong> Toque el botón para activarlas. Hay que hacerlo cada vez que se abre esta página.</p>
+    <button class="btn" id="armBtn" type="button">🔔 Activar alarmas</button>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-hoy" aria-selected="true" data-view="hoy" type="button">Hoy</button>
+    <button role="tab" id="tab-meds" aria-selected="false" data-view="meds" type="button">Medicamentos</button>
+    <button role="tab" id="tab-ajustes" aria-selected="false" data-view="ajustes" type="button">Ajustes</button>
+  </nav>
+
+  <!-- HOY -->
+  <section id="view-hoy">
+    <div class="daybar">
+      <button class="iconbtn" id="prevDay" type="button" aria-label="Día anterior">‹</button>
+      <div class="date" id="dayLabel"></div>
+      <button class="iconbtn" id="nextDay" type="button" aria-label="Día siguiente">›</button>
+      <button class="btn ghost small" id="todayBtn" type="button" hidden>Volver a hoy</button>
+    </div>
+    <div class="progress">
+      <div class="track"><div class="fill" id="progFill"></div></div>
+      <div class="count" id="progCount">0 de 0</div>
+    </div>
+    <div class="legend">
+      <span style="--c:var(--b-man)">Mañana</span>
+      <span style="--c:var(--b-med)">Mediodía</span>
+      <span style="--c:var(--b-tar)">Tarde</span>
+      <span style="--c:var(--b-noc)">Noche</span>
+    </div>
+    <div class="notice" id="exampleNotice" hidden>
+      <p>Estos medicamentos son <strong>ejemplos</strong>. Agregue los reales en la pestaña “Medicamentos” y luego borre los ejemplos.</p>
+      <button class="btn small" id="clearExamples" type="button">Borrar ejemplos</button>
+    </div>
+    <div class="slots" id="slots"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn ghost small" id="toggleEmpty" type="button">Mostrar todas las horas</button>
+    </div>
+  </section>
+
+  <!-- MEDICAMENTOS -->
+  <section id="view-meds" hidden>
+    <div class="toolbar">
+      <h2>Lista de medicamentos</h2>
+      <button class="btn" id="addMed" type="button">＋ Agregar medicamento</button>
+    </div>
+    <div id="formHost"></div>
+    <div class="medlist" id="medList"></div>
+  </section>
+
+  <!-- AJUSTES -->
+  <section id="view-ajustes" hidden>
+    <div class="settings">
+      <section>
+        <h2>Paciente</h2>
+        <div class="field">
+          <label for="patientName">Nombre del paciente</label>
+          <input type="text" id="patientName" placeholder="Ej.: Doña María">
+        </div>
+      </section>
+      <section>
+        <h2>Alarma</h2>
+        <div class="field">
+          <label for="soundType">Tipo de sonido</label>
+          <select id="soundType">
+            <option value="campana">Campana</option>
+            <option value="pitido">Pitido fuerte</option>
+            <option value="suave">Melodía suave</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="volume">Volumen</label>
+          <input type="range" id="volume" min="0.1" max="1" step="0.05">
+        </div>
+        <div class="field">
+          <label for="repeatMin">Si no se marca como tomado, volver a sonar cada</label>
+          <select id="repeatMin">
+            <option value="3">3 minutos</option>
+            <option value="5">5 minutos</option>
+            <option value="10">10 minutos</option>
+            <option value="15">15 minutos</option>
+          </select>
+          <span class="hint">La alarma suena a la hora en punto y repite durante esa hora hasta que se marquen todas las tomas.</span>
+        </div>
+        <div class="row">
+          <button class="btn ghost" id="testSound" type="button">▶ Probar sonido</button>
+          <button class="btn ghost" id="testAlarm" type="button">Probar alarma completa</button>
+        </div>
+        <p>Para que la alarma suene, esta página debe estar abierta en el navegador, con el volumen del equipo encendido. Se recomienda dejar la tableta o el teléfono conectado al cargador.</p>
+      </section>
+      <section>
+        <h2>Respaldo</h2>
+        <p>Los datos se guardan solo en este navegador. Descargue un respaldo de vez en cuando, o para pasar la lista a otro equipo.</p>
+        <div class="row">
+          <button class="btn ghost" id="exportBtn" type="button">Descargar respaldo</button>
+          <label class="btn ghost" for="importFile">Cargar respaldo</label>
+          <input type="file" id="importFile" accept="application/json,.json" hidden>
+        </div>
+      </section>
+    </div>
+  </section>
+</div>
+
+<div class="alarm" id="alarm" hidden role="alertdialog" aria-modal="true" aria-labelledby="alarmTitle">
+  <div class="box" id="alarmBox">
+    <div class="head">
+      <div class="bell" aria-hidden="true">🔔</div>
+      <h2 id="alarmTitle">Hora de sus medicamentos</h2>
+      <div class="when" id="alarmWhen"></div>
+    </div>
+    <div class="list" id="alarmList"></div>
+    <div class="foot">
+      <button class="btn ghost" id="snoozeBtn" type="button">Recordar en 10 min</button>
+      <button class="btn ghost" id="muteBtn" type="button">Silenciar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function(){
+"use strict";
+var KEY = "controlMedicamentos.v1";
+var HOURS = []; for (var i=6;i<=23;i++) HOURS.push(i);
+var PILL = '<svg viewBox="0 0 48 48" aria-hidden="true"><g transform="rotate(-35 24 24)"><rect x="6" y="16" width="36" height="16" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2.5"/><path d="M24 16v16" stroke="var(--accent)" stroke-width="2.5"/><rect x="6" y="16" width="18" height="16" rx="8" fill="var(--accent)" opacity=".85"/></g></svg>';
+var CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+var state = load();
+var viewDate = todayKey();
+var showEmpty = false;
+var armed = false;
+var audioCtx = null;
+var lastRing = {};        // "fecha@hora" -> ms
+var snoozeUntil = 0;
+var alarmHour = null;
+var ringTimer = null, ringStop = null;
+var wakeLock = null;
+var editingId = null;
+var lastHourSeen = new Date().getHours();
+
+/* ---------- datos ---------- */
+function defaults(){
+  return {
+    meds:[
+      {id:uid(), name:"Losartán", dose:"50 mg · 1 tableta", note:"Con un vaso de agua", photo:"", hours:[7,19], example:true},
+      {id:uid(), name:"Metformina", dose:"850 mg · 1 tableta", note:"Después de comer", photo:"", hours:[8,14,20], example:true},
+      {id:uid(), name:"Vitamina D", dose:"1 cápsula", note:"", photo:"", hours:[10], example:true},
+      {id:uid(), name:"Paracetamol", dose:"500 mg · 1 tableta", note:"", photo:"", hours:[6,12,18,23], example:true}
+    ],
+    log:{},
+    settings:{patient:"", sound:"campana", volume:0.8, repeatMin:5}
+  };
+}
+function load(){
+  try{
+    var raw = localStorage.getItem(KEY);
+    if (raw){ var d = JSON.parse(raw); if (d && d.meds) { d.log = d.log||{}; d.settings = Object.assign(defaults().settings, d.settings||{}); return d; } }
+  }catch(e){}
+  return defaults();
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); return true; }
+  catch(e){ toast("No se pudo guardar. Puede que las fotos sean muy pesadas: pruebe con una foto más pequeña."); return false; }
+}
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function pad(n){ return (n<10?"0":"")+n; }
+function todayKey(d){ d = d||new Date(); return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function parseKey(k){ var p=k.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function shiftKey(k, n){ var d=parseKey(k); d.setDate(d.getDate()+n); return todayKey(d); }
+function hourParts(h){ var hh = h%12===0?12:h%12; return {n: hh+":00", ap: h<12?"a. m.":"p. m."}; }
+function hourLabel(h){ var p=hourParts(h); return p.n+" "+p.ap; }
+function band(h){ return h<12?"man":h<17?"med":h<20?"tar":"noc"; }
+function bandName(h){ return {man:"Mañana",med:"Mediodía",tar:"Tarde",noc:"Noche"}[band(h)]; }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+function medsAt(h){ return state.meds.filter(function(m){ return m.hours.indexOf(h)>-1; }); }
+function taken(dateK, medId, h){ var d=state.log[dateK]; return d ? d[medId+"@"+h] : null; }
+function setTaken(dateK, medId, h, val){
+  state.log[dateK] = state.log[dateK]||{};
+  if (val) state.log[dateK][medId+"@"+h] = val; else delete state.log[dateK][medId+"@"+h];
+  save();
+}
+function nowHM(){ var d=new Date(); return pad(d.getHours())+":"+pad(d.getMinutes()); }
+function thumb(m){ return m.photo ? '<img class="thumb" src="'+m.photo+'" alt="Foto de '+esc(m.name)+'">' : '<div class="thumb">'+PILL+'</div>'; }
+
+/* ---------- vista Hoy ---------- */
+function renderHoy(){
+  var isToday = viewDate===todayKey();
+  var d = parseKey(viewDate);
+  var label = d.toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long"});
+  document.getElementById("dayLabel").textContent = (isToday?"Hoy, ":"")+label;
+  document.getElementById("todayBtn").hidden = isToday;
+  document.getElementById("nextDay").disabled = isToday;
+  document.getElementById("nextDay").style.opacity = isToday?.35:1;
+  document.getElementById("exampleNotice").hidden = !state.meds.some(function(m){return m.example;});
+
+  var nowH = new Date().getHours();
+  var past = viewDate < todayKey();
+  var total=0, done=0, html="";
+  HOURS.forEach(function(h){
+    var list = medsAt(h);
+    var p = hourParts(h);
+    var isNow = isToday && h===nowH;
+    if (!list.length){
+      if (showEmpty) html += '<div class="slot empty" style="--band:var(--b-'+band(h)+')"><div class="hour"><b>'+p.n+'</b><span>'+p.ap+'</span></div><div class="meds">Sin medicamentos</div></div>';
+      return;
+    }
+    var rows = list.map(function(m){
+      total++;
+      var t = taken(viewDate, m.id, h);
+      if (t) done++;
+      var late = !t && (past || (isToday && h<nowH));
+      var st = t ? '<div class="status ok">Tomado a las '+esc(t)+'</div>' : late ? '<div class="status late">No marcado</div>' : '';
+      return '<div class="med">'+thumb(m)+
+        '<div class="info"><div class="name">'+esc(m.name)+(m.example?'<span class="tag">ejemplo</span>':'')+'</div>'+
+        '<div class="dose">'+esc([m.dose,m.note].filter(Boolean).join(" · "))+'</div>'+st+'</div>'+
+        '<button type="button" class="check'+(t?' done':late?' late':'')+'" data-med="'+m.id+'" data-h="'+h+'" aria-pressed="'+(t?'true':'false')+'" aria-label="'+(t?'Desmarcar ':'Marcar como tomado: ')+esc(m.name)+' de las '+hourLabel(h)+'">'+
+        (t?CHECK:'<span>Tomar</span>')+'</button></div>';
+    }).join("");
+    html += '<div class="slot'+(isNow?' now':'')+'" style="--band:var(--b-'+band(h)+')"><div class="hour"><b>'+p.n+'</b><span>'+p.ap+'</span>'+(isNow?'<em>Ahora</em>':'')+'</div><div class="meds">'+rows+'</div></div>';
+  });
+  if (!total && !showEmpty) html = '<div class="notice"><p>Todavía no hay medicamentos. Vaya a la pestaña “Medicamentos” para agregar el primero.</p></div>';
+  document.getElementById("slots").innerHTML = html;
+  document.getElementById("progFill").style.width = total? (done/total*100)+"%" : "0";
+  document.getElementById("progCount").textContent = done+" de "+total+" tomas";
+  document.getElementById("toggleEmpty").textContent = showEmpty ? "Ocultar horas sin medicamentos" : "Mostrar todas las horas";
+}
+
+document.getElementById("slots").addEventListener("click", function(e){
+  var b = e.target.closest(".check"); if (!b) return;
+  var id=b.dataset.med, h=+b.dataset.h;
+  var t = taken(viewDate, id, h);
+  setTaken(viewDate, id, h, t ? null : nowHM());
+  renderHoy();
+  if (!t) toast("Toma registrada ✓");
+});
+document.getElementById("prevDay").onclick = function(){ viewDate = shiftKey(viewDate,-1); renderHoy(); };
+document.getElementById("nextDay").onclick = function(){ if (viewDate<todayKey()){ viewDate = shiftKey(viewDate,1); renderHoy(); } };
+document.getElementById("todayBtn").onclick = function(){ viewDate = todayKey(); renderHoy(); };
+document.getElementById("toggleEmpty").onclick = function(){ showEmpty=!showEmpty; renderHoy(); };
+document.getElementById("clearExamples").onclick = function(){
+  state.meds = state.meds.filter(function(m){return !m.example;}); save(); renderAll(); toast("Ejemplos borrados");
+};
+
+/* ---------- vista Medicamentos ---------- */
+function renderMeds(){
+  var el = document.getElementById("medList");
+  if (!state.meds.length){ el.innerHTML = '<div class="notice"><p>No hay medicamentos todavía. Use “Agregar medicamento”.</p></div>'; return; }
+  el.innerHTML = state.meds.map(function(m){
+    var hrs = m.hours.slice().sort(function(a,b){return a-b;}).map(function(h){return '<span>'+hourLabel(h)+'</span>';}).join("");
+    return '<div class="medcard">'+thumb(m)+'<div class="info">'+
+      '<div class="name" style="font-weight:700;font-size:20px">'+esc(m.name)+(m.example?'<span class="tag">ejemplo</span>':'')+'</div>'+
+      '<div class="dose" style="color:var(--muted)">'+esc([m.dose,m.note].filter(Boolean).join(" · "))+'</div>'+
+      '<div class="hrs">'+(hrs||'<span>Sin horario</span>')+'</div>'+
+      '<div class="actions"><button type="button" class="btn ghost small" data-edit="'+m.id+'">Editar</button>'+
+      '<button type="button" class="btn ghost small" data-del="'+m.id+'">Eliminar</button></div></div></div>';
+  }).join("");
+}
+document.getElementById("medList").addEventListener("click", function(e){
+  var ed = e.target.closest("[data-edit]"), del = e.target.closest("[data-del]");
+  if (ed){ openForm(ed.dataset.edit); return; }
+  if (del){
+    if (del.dataset.confirm){
+      state.meds = state.meds.filter(function(m){return m.id!==del.dataset.del;}); save(); renderAll(); toast("Medicamento eliminado");
+    } else {
+      del.dataset.confirm="1"; del.textContent="¿Seguro? Toque otra vez"; del.className="btn danger small";
+      setTimeout(function(){ if (del.isConnected){ delete del.dataset.confirm; del.textContent="Eliminar"; del.className="btn ghost small"; } }, 4000);
+    }
+  }
+});
+document.getElementById("addMed").onclick = function(){ openForm(null); };
+
+function openForm(id){
+  editingId = id;
+  var m = id ? state.meds.filter(function(x){return x.id===id;})[0] : {name:"",dose:"",note:"",photo:"",hours:[]};
+  var draft = {photo:m.photo, hours:m.hours.slice()};
+  var host = document.getElementById("formHost");
+  host.innerHTML =
+   '<form class="panel" id="medForm" novalidate>'+
+    '<h2>'+(id?'Editar medicamento':'Nuevo medicamento')+'</h2>'+
+    '<div class="field"><label for="f-name">Nombre del medicamento</label><input type="text" id="f-name" value="'+esc(m.name)+'" placeholder="Ej.: Losartán"></div>'+
+    '<div class="field"><label for="f-dose">Dosis</label><input type="text" id="f-dose" value="'+esc(m.dose)+'" placeholder="Ej.: 50 mg · 1 tableta"></div>'+
+    '<div class="field"><label for="f-note">Indicaciones (opcional)</label><input type="text" id="f-note" value="'+esc(m.note)+'" placeholder="Ej.: Con comida, en ayunas…"></div>'+
+    '<div class="field"><span class="lbl">Foto del medicamento</span><div class="photo-row"><div id="f-prev"></div>'+
+      '<div class="row"><label class="btn ghost small" for="f-photo">📷 Elegir o tomar foto</label><input type="file" id="f-photo" accept="image/*" hidden>'+
+      '<button type="button" class="btn ghost small" id="f-nophoto">Quitar foto</button></div></div>'+
+      '<span class="hint">Una foto de la caja o de la pastilla ayuda al paciente a reconocerla.</span></div>'+
+    '<div class="field"><span class="lbl">Horas de toma</span><span class="hint">Toque cada hora en que debe tomarlo.</span><div class="chips" id="f-hours"></div></div>'+
+    '<p class="err" id="f-err" hidden></p>'+
+    '<div class="form-actions"><button type="submit" class="btn">Guardar</button><button type="button" class="btn ghost" id="f-cancel">Cancelar</button></div>'+
+   '</form>';
+  function drawPhoto(){ document.getElementById("f-prev").innerHTML = draft.photo ? '<img class="thumb" src="'+draft.photo+'" alt="Vista previa">' : '<div class="thumb">'+PILL+'</div>'; document.getElementById("f-nophoto").hidden = !draft.photo; }
+  function drawHours(){
+    document.getElementById("f-hours").innerHTML = HOURS.map(function(h){
+      var p=hourParts(h);
+      return '<button type="button" class="chip" style="--band:var(--b-'+band(h)+')" data-h="'+h+'" aria-pressed="'+(draft.hours.indexOf(h)>-1)+'">'+p.n+'<small>'+p.ap+'</small></button>';
+    }).join("");
+  }
+  drawPhoto(); drawHours();
+  document.getElementById("f-hours").onclick = function(e){
+    var c=e.target.closest(".chip"); if(!c) return; var h=+c.dataset.h; var i=draft.hours.indexOf(h);
+    if (i>-1) draft.hours.splice(i,1); else draft.hours.push(h); drawHours();
+  };
+  document.getElementById("f-photo").onchange = function(e){
+    var f=e.target.files[0]; if(!f) return;
+    shrink(f).then(function(url){ draft.photo=url; drawPhoto(); }).catch(function(){ toast("No se pudo leer la imagen. Pruebe con otra foto."); });
+  };
+  document.getElementById("f-nophoto").onclick = function(){ draft.photo=""; drawPhoto(); };
+  document.getElementById("f-cancel").onclick = closeForm;
+  document.getElementById("medForm").onsubmit = function(e){
+    e.preventDefault();
+    var name = document.getElementById("f-name").value.trim();
+    var err = document.getElementById("f-err");
+    if (!name){ err.textContent="Escriba el nombre del medicamento."; err.hidden=false; return; }
+    if (!draft.hours.length){ err.textContent="Elija al menos una hora de toma."; err.hidden=false; return; }
+    var rec = {name:name, dose:document.getElementById("f-dose").value.trim(), note:document.getElementById("f-note").value.trim(), photo:draft.photo, hours:draft.hours.sort(function(a,b){return a-b;})};
+    if (editingId){ state.meds = state.meds.map(function(x){ return x.id===editingId ? Object.assign({}, x, rec, {example:false}) : x; }); }
+    else { rec.id = uid(); state.meds.push(rec); }
+    if (save()){ closeForm(); renderAll(); toast(editingId?"Cambios guardados":"Medicamento agregado"); }
+  };
+  host.scrollIntoView({behavior:"smooth", block:"start"});
+  document.getElementById("f-name").focus({preventScroll:true});
+}
+function closeForm(){ document.getElementById("formHost").innerHTML=""; editingId=null; }
+
+function shrink(file){
+  return new Promise(function(res, rej){
+    var r = new FileReader();
+    r.onerror = rej;
+    r.onload = function(){
+      var img = new Image();
+      img.onerror = rej;
+      img.onload = function(){
+        var max=360, s=Math.min(1, max/Math.max(img.width, img.height));
+        var c=document.createElement("canvas"); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s);
+        c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+        res(c.toDataURL("image/jpeg",0.82));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+/* ---------- Ajustes ---------- */
+function renderSettings(){
+  var s=state.settings;
+  document.getElementById("patientName").value = s.patient||"";
+  document.getElementById("soundType").value = s.sound;
+  document.getElementById("volume").value = s.volume;
+  document.getElementById("repeatMin").value = String(s.repeatMin);
+  document.getElementById("patientTitle").textContent = s.patient ? "Medicamentos de "+s.patient : "Mis medicamentos";
+}
+document.getElementById("patientName").oninput = function(e){ state.settings.patient=e.target.value.trim(); save(); renderSettings(); };
+document.getElementById("soundType").onchange = function(e){ state.settings.sound=e.target.value; save(); unlockAudio(); playPattern(); };
+document.getElementById("volume").onchange = function(e){ state.settings.volume=+e.target.value; save(); unlockAudio(); playPattern(); };
+document.getElementById("repeatMin").onchange = function(e){ state.settings.repeatMin=+e.target.value; save(); };
+document.getElementById("testSound").onclick = function(){ unlockAudio(); playPattern(); };
+document.getElementById("testAlarm").onclick = function(){
+  unlockAudio();
+  var h = new Date().getHours(); if (h<6||h>23) h=8;
+  openAlarm(h, true);
+};
+document.getElementById("exportBtn").onclick = function(){
+  var blob = new Blob([JSON.stringify(state,null,1)],{type:"application/json"});
+  var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="respaldo-medicamentos-"+todayKey()+".json";
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(a.href);},2000);
+};
+document.getElementById("importFile").onchange = function(e){
+  var f=e.target.files[0]; if(!f) return;
+  var r=new FileReader();
+  r.onload=function(){
+    try{ var d=JSON.parse(r.result); if(!d.meds) throw 0; d.log=d.log||{}; d.settings=Object.assign(defaults().settings,d.settings||{}); state=d; save(); renderAll(); toast("Respaldo cargado"); }
+    catch(x){ toast("Ese archivo no es un respaldo válido."); }
+    e.target.value="";
+  };
+  r.readAsText(f);
+};
+
+/* ---------- Pestañas ---------- */
+document.querySelector("nav.tabs").addEventListener("click", function(e){
+  var b=e.target.closest("button[data-view]"); if(!b) return;
+  ["hoy","meds","ajustes"].forEach(function(v){
+    document.getElementById("view-"+v).hidden = v!==b.dataset.view;
+  });
+  document.querySelectorAll("nav.tabs button").forEach(function(x){ x.setAttribute("aria-selected", x===b?"true":"false"); });
+  if (b.dataset.view==="hoy") renderHoy();
+});
+
+/* ---------- Sonido ---------- */
+function unlockAudio(){
+  try{
+    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if (audioCtx.state==="suspended") audioCtx.resume();
+  }catch(e){}
+}
+function tone(freq, start, dur, type, vol){
+  var o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type=type; o.frequency.value=freq;
+  g.gain.setValueAtTime(0.0001,start);
+  g.gain.exponentialRampToValueAtTime(vol,start+0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001,start+dur);
+  o.connect(g); g.connect(audioCtx.destination); o.start(start); o.stop(start+dur+0.05);
+}
+function playPattern(){
+  if (!audioCtx) return;
+  var t=audioCtx.currentTime+0.05, v=state.settings.volume*0.6, s=state.settings.sound;
+  if (s==="pitido"){ for (var i=0;i<4;i++){ tone(1760,t+i*0.25,0.16,"square",v*0.5); } }
+  else if (s==="suave"){ [523,659,784,1047].forEach(function(f,i){ tone(f,t+i*0.22,0.6,"sine",v); }); }
+  else { [880,1318,880,1318].forEach(function(f,i){ tone(f,t+i*0.35,1.1,"triangle",v); tone(f*2,t+i*0.35,0.5,"sine",v*0.25); }); }
+}
+function startRinging(){
+  stopRinging();
+  playPattern();
+  ringTimer = setInterval(playPattern, 2600);
+  ringStop = setTimeout(stopRinging, 60000); // suena 1 minuto y luego espera para repetir
+  flashTitle(true);
+}
+function stopRinging(){ clearInterval(ringTimer); clearTimeout(ringStop); ringTimer=null; flashTitle(false); }
+var titleTimer=null, baseTitle=document.title;
+function flashTitle(on){
+  clearInterval(titleTimer); document.title=baseTitle;
+  if (on){ var f=false; titleTimer=setInterval(function(){ f=!f; document.title = f ? "🔔 ¡Hora del medicamento!" : baseTitle; },1000); }
+}
+
+/* ---------- Alarma ---------- */
+document.getElementById("armBtn").onclick = function(){
+  unlockAudio();
+  armed = !armed;
+  if (armed){ playPattern(); requestWake(); checkAlarm(); } else { releaseWake(); }
+  renderArm();
+};
+function renderArm(){
+  var box=document.getElementById("armBox"), t=document.getElementById("armText"), b=document.getElementById("armBtn");
+  box.classList.toggle("on", armed);
+  t.innerHTML = armed ? "<strong>Alarmas activadas.</strong> Sonarán a la hora en punto mientras esta página esté abierta." : "<strong>Las alarmas con sonido están apagadas.</strong> Toque el botón para activarlas. Hay que hacerlo cada vez que se abre esta página.";
+  b.textContent = armed ? "Apagar alarmas" : "🔔 Activar alarmas";
+  b.className = armed ? "btn ghost" : "btn";
+}
+function pendingAt(h){ var k=todayKey(); return medsAt(h).filter(function(m){ return !taken(k,m.id,h); }); }
+
+function openAlarm(h, test){
+  alarmHour = h;
+  var list = test ? medsAt(h) : pendingAt(h);
+  if (test && !list.length) list = state.meds.slice(0,2);
+  var box=document.getElementById("alarmBox"); box.style.setProperty("--band","var(--b-"+band(h)+")");
+  document.getElementById("alarmTitle").textContent = test ? "Prueba de alarma" : "Hora de sus medicamentos";
+  document.getElementById("alarmWhen").textContent = hourLabel(h)+" · "+bandName(h);
+  document.getElementById("alarmList").innerHTML = list.length ? list.map(function(m){
+    return '<div class="item">'+thumb(m)+'<div><div class="name">'+esc(m.name)+'</div><div class="dose">'+esc([m.dose,m.note].filter(Boolean).join(" · "))+'</div>'+
+      (test?'':'<button type="button" class="btn" data-take="'+m.id+'">'+CHECK.replace('viewBox','width="22" height="22" viewBox')+' Ya lo tomé</button>')+'</div></div>';
+  }).join("") : '<p style="text-align:center;margin:0">No hay medicamentos para mostrar.</p>';
+  document.getElementById("alarm").hidden=false;
+  document.getElementById("alarm").dataset.test = test?"1":"";
+  startRinging();
+}
+function closeAlarm(){ document.getElementById("alarm").hidden=true; stopRinging(); alarmHour=null; }
+document.getElementById("alarmList").addEventListener("click", function(e){
+  var b=e.target.closest("[data-take]"); if(!b) return;
+  setTaken(todayKey(), b.dataset.take, alarmHour, nowHM());
+  var item=b.closest(".item"); b.outerHTML='<div class="status ok" style="font-size:18px;margin-top:8px">✓ Tomado</div>';
+  if (!pendingAt(alarmHour).length){ closeAlarm(); toast("¡Listo! Todas las tomas de esta hora están marcadas."); }
+  else stopRinging();
+  renderHoy();
+});
+document.getElementById("snoozeBtn").onclick = function(){ snoozeUntil = Date.now()+10*60000; closeAlarm(); toast("Le recordaré en 10 minutos"); };
+document.getElementById("muteBtn").onclick = function(){
+  if (document.getElementById("alarm").dataset.test){ closeAlarm(); return; }
+  stopRinging(); closeAlarm();
+};
+
+function checkAlarm(){
+  if (!armed) return;
+  var now=new Date(), h=now.getHours();
+  if (h<6||h>23) return;
+  var pend = pendingAt(h);
+  var alarmEl=document.getElementById("alarm");
+  if (!pend.length){ if (!alarmEl.hidden && !alarmEl.dataset.test && alarmHour===h) closeAlarm(); return; }
+  if (Date.now()<snoozeUntil) return;
+  if (!alarmEl.hidden) return;
+  var k=todayKey()+"@"+h, last=lastRing[k]||0;
+  if (Date.now()-last >= state.settings.repeatMin*60000){ lastRing[k]=Date.now(); openAlarm(h,false); }
+}
+
+/* ---------- Pantalla encendida ---------- */
+function requestWake(){
+  try{ if ("wakeLock" in navigator) navigator.wakeLock.request("screen").then(function(w){ wakeLock=w; }).catch(function(){}); }catch(e){}
+}
+function releaseWake(){ try{ if (wakeLock) wakeLock.release(); }catch(e){} wakeLock=null; }
+document.addEventListener("visibilitychange", function(){ if (document.visibilityState==="visible"){ if (armed) requestWake(); tick(); } });
+
+/* ---------- Reloj ---------- */
+function tick(){
+  var d=new Date();
+  var hh=d.getHours()%12||12;
+  document.getElementById("clock").firstChild.nodeValue = hh+":"+pad(d.getMinutes())+" "+(d.getHours()<12?"a. m.":"p. m.");
+  document.getElementById("clockDate").textContent = d.toLocaleDateString("es",{weekday:"long",day:"numeric",month:"long"});
+  if (d.getHours()!==lastHourSeen){
+    lastHourSeen=d.getHours();
+    if (viewDate===shiftKey(todayKey(),-1) && d.getHours()===0) viewDate=todayKey();
+    renderHoy();
+  }
+  checkAlarm();
+}
+
+var toastT=null;
+function toast(msg){ var t=document.getElementById("toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(function(){t.hidden=true;},2800); }
+
+function renderAll(){ renderHoy(); renderMeds(); renderSettings(); }
+renderAll(); renderArm(); tick();
+setInterval(tick, 10000);
+})();
+</script>
+</body>
+</html>
